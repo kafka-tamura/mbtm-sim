@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Matrix beneath the Map — Simulation</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f1ec;
+  --surf: #ffffff;
+  --surf2: #f0ede8;
+  --surf3: #e8e4de;
+  --border: #ddd9d2;
+  --border2: #ccc8c0;
+  --text: #1a1814;
+  --muted: #6b6560;
+  --faint: #a09890;
+  --A: #0d9668; --Ab: rgba(13,150,104,0.12); --Ag: rgba(13,150,104,0.06);
+  --B: #c27d0a; --Bb: rgba(194,125,10,0.12); --Bg: rgba(194,125,10,0.06);
+  --C: #c73535; --Cb: rgba(199,53,53,0.12); --Cg: rgba(199,53,53,0.06);
+  --D: #4b4fc4; --Db: rgba(75,79,196,0.12); --Dg: rgba(75,79,196,0.06);
+  --gold: #c27d0a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Lora',serif;font-size:14px;line-height:1.6}
+
+
+/* MAX-WIDTH WRAPPER */
+.wrap{max-width:1440px;margin:0 auto;background:var(--bg);box-shadow:0 0 0 1px var(--border)}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--surf2)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* HEADER */
+.hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:20px 36px;border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(194,125,10,0.05) 0%,transparent 100%);
+}
+.hdr-left h1{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;color:var(--text)}
+.hdr-left p{font-size:12px;color:var(--muted);font-style:italic;margin-top:2px}
+.hdr-right{font-size:11px;color:var(--muted);text-align:right;line-height:1.5}
+
+/* TABS */
+.tabs{display:flex;padding:0 36px;border-bottom:1px solid var(--border);overflow-x:auto;gap:0;background:var(--surf)}
+.tab{
+  font-family:'Syne',sans-serif;font-size:11px;font-weight:600;letter-spacing:0.08em;
+  text-transform:uppercase;color:var(--muted);padding:14px 20px 12px;cursor:pointer;
+  border:none;background:none;border-bottom:2px solid transparent;white-space:nowrap;
+  transition:color .15s,border-color .15s;
+}
+.tab:hover{color:var(--text)}
+.tab.on{color:var(--gold);border-bottom-color:var(--gold)}
+
+/* PANELS */
+.panel{display:none;padding:28px 36px 48px}
+.panel.on{display:block}
+
+/* LAYOUT */
+.cols{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
+.col{flex:1;min-width:180px}
+.col-wide{flex:1.6;min-width:200px}
+.col-narrow{flex:0.8;min-width:160px}
+
+/* CARDS */
+.card{background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:16px;overflow:hidden}
+.card-hd{
+  font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.14em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:14px;
+  display:flex;align-items:center;gap:8px;
+}
+.card-hd::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* MATRIX VISUAL */
+.mat-wrap{position:relative;padding:24px 0 0 24px;user-select:none}
+.mat-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:6px}
+.mat-cell{
+  border-radius:8px;padding:14px 12px;cursor:pointer;border:1.5px solid transparent;
+  transition:all .2s;position:relative;overflow:hidden;
+}
+.mat-cell::before{
+  content:'';position:absolute;inset:0;opacity:0;
+  transition:opacity .2s;background:rgba(0,0,0,0.03);
+}
+.mat-cell:hover::before{opacity:1}
+.mat-cell.A{background:var(--Ag);border-color:rgba(16,185,129,0.25)}
+.mat-cell.B{background:var(--Bg);border-color:rgba(245,158,11,0.25)}
+.mat-cell.C{background:var(--Cg);border-color:rgba(239,68,68,0.25)}
+.mat-cell.D{background:var(--Dg);border-color:rgba(99,102,241,0.25)}
+.mat-cell.lit{filter:brightness(0.94);box-shadow:0 0 16px var(--cell-glow, rgba(0,0,0,0.1))}
+.mat-cell.lit.A{--cell-glow:rgba(13,150,104,0.25)}
+.mat-cell.lit.B{--cell-glow:rgba(194,125,10,0.25)}
+.mat-cell.lit.C{--cell-glow:rgba(199,53,53,0.25)}
+.mat-cell.lit.D{--cell-glow:rgba(75,79,196,0.25)}
+.cell-id{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:500;margin-bottom:4px}
+.cell-id.A{color:var(--A)}.cell-id.B{color:var(--B)}.cell-id.C{color:var(--C)}.cell-id.D{color:var(--D)}
+.cell-name{font-size:10px;color:var(--muted);font-style:italic;line-height:1.3}
+.cell-tag{font-size:10px;font-family:'Syne',sans-serif;font-weight:700;margin-top:6px}
+.cell-tag.A{color:var(--A)}.cell-tag.B{color:var(--B)}.cell-tag.C{color:var(--C)}.cell-tag.D{color:var(--D)}
+.ax-y{
+  position:absolute;left:0;top:24px;writing-mode:vertical-rl;transform:rotate(180deg);
+  font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:var(--faint);
+  display:flex;align-items:center;height:calc(100% - 24px);
+}
+.ax-x{font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:var(--faint);
+  text-align:center;margin-top:8px;padding-left:24px}
+.ax-x-ends{display:flex;justify-content:space-between;padding-left:24px;margin-top:2px;font-size:9px;color:var(--faint)}
+
+/* CONTROLS */
+.ctrl{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.ctrl-lbl{font-size:12px;color:var(--muted);min-width:110px;font-style:italic}
+input[type=range]{
+  -webkit-appearance:none;width:130px;height:3px;background:var(--border2);border-radius:2px;outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:13px;height:13px;background:var(--gold);border-radius:50%;cursor:pointer;
+}
+.rv{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--gold);min-width:32px}
+select{
+  background:var(--surf2);border:1px solid var(--border2);color:var(--text);
+  font-family:'Lora',serif;font-size:12px;padding:5px 10px;border-radius:5px;cursor:pointer;
+}
+
+/* BUTTONS */
+.btn{
+  font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.1em;
+  text-transform:uppercase;padding:8px 18px;border-radius:5px;border:none;cursor:pointer;transition:opacity .15s;
+}
+.btn-gold{background:var(--gold);color:#000}.btn-gold:hover{opacity:0.85}
+.btn-dim{background:var(--surf2);color:var(--muted);border:1px solid var(--border2)}.btn-dim:hover{color:var(--text);background:var(--surf3)}
+
+/* STATS ROW */
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.stat{background:var(--surf2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;min-width:90px}
+.stat-l{font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);font-family:'Syne',sans-serif;font-weight:700}
+.stat-v{font-family:'IBM Plex Mono',monospace;font-size:20px;margin-top:2px}
+.g{color:var(--A)}.y{color:var(--gold)}.r{color:var(--C)}.b{color:var(--D)}.w{color:var(--text)}
+
+/* PATH */
+.path-box{
+  background:var(--surf2);border:1px solid var(--border);border-radius:6px;
+  padding:10px 12px;min-height:44px;display:flex;flex-wrap:wrap;gap:4px;
+  align-items:center;max-height:100px;overflow-y:auto;font-family:'IBM Plex Mono',monospace;font-size:12px;
+}
+.ps{padding:2px 7px;border-radius:3px;font-size:11px;font-weight:500}
+.ps.A{background:var(--Ab);color:var(--A)}
+.ps.B{background:var(--Bb);color:var(--B)}
+.ps.C{background:var(--Cb);color:var(--C)}
+.ps.D{background:var(--Db);color:var(--D)}
+.pa{color:var(--faint);font-size:10px}
+
+/* INSIGHT */
+.insight{
+  background:linear-gradient(135deg,rgba(194,125,10,0.07),rgba(194,125,10,0.03));
+  border:1px solid rgba(194,125,10,0.2);border-radius:8px;padding:14px 16px;
+  font-size:13px;line-height:1.7;margin-top:4px;
+}
+.insight strong{color:var(--gold)}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);padding:7px 10px;border-bottom:1px solid var(--border);text-align:left}
+.tbl td{padding:9px 10px;border-bottom:1px solid var(--border);font-size:13px}
+.tbl tr:last-child td{border-bottom:none}
+.tbl .lc{color:var(--muted);font-style:italic;font-size:12px}
+.tbl .mc{font-family:'IBM Plex Mono',monospace;font-size:13px}
+
+/* PILL */
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-family:'Syne',sans-serif;font-weight:700}
+.pill.A{background:var(--Ab);color:var(--A)}
+.pill.B{background:var(--Bb);color:var(--B)}
+.pill.C{background:var(--Cb);color:var(--C)}
+.pill.D{background:var(--Db);color:var(--D)}
+
+/* TOD BAR */
+.tod-bar{display:flex;height:28px;border-radius:6px;overflow:hidden;cursor:pointer;margin-bottom:6px}
+.tod-seg{
+  display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;
+  font-size:9px;font-weight:700;letter-spacing:0.06em;transition:filter .15s;
+}
+.tod-seg:hover{filter:brightness(1.3)}
+.tod-seg.on{outline:2px solid var(--gold);outline-offset:-2px;filter:brightness(1.4)}
+
+/* AV BARS */
+.av-bar-wrap{height:22px;background:var(--surf2);border-radius:4px;overflow:hidden;position:relative;margin-bottom:6px}
+.av-fill-h{position:absolute;left:0;height:100%;background:linear-gradient(90deg,#6366f1,#4338ca);
+  display:flex;align-items:center;padding-left:8px;font-size:9px;font-weight:700;color:#fff;letter-spacing:0.06em;transition:width .6s ease;font-family:'Syne',sans-serif;white-space:nowrap;overflow:hidden}
+.av-fill-a{position:absolute;right:0;height:100%;background:linear-gradient(90deg,#d97706,#f59e0b);
+  display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:9px;font-weight:700;color:#000;letter-spacing:0.06em;transition:width .6s ease;font-family:'Syne',sans-serif;white-space:nowrap;overflow:hidden}
+
+/* CANVAS */
+canvas{display:block;width:100%;max-width:100%}
+
+/* SECTION TITLE */
+.sec{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;margin-top:4px}
+
+/* INTRO QUOTE */
+.iq{font-style:italic;font-size:14px;color:var(--muted);line-height:1.8;margin-bottom:20px;max-width:660px;padding-left:14px;border-left:2px solid var(--border2)}
+
+.cols-pair { flex-wrap: wrap; }
+.cols-pair .col { min-width: 220px; }
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════ */
+
+/* Compact: 640–1100px  — two-column layout preserved, just tighter */
+@media (max-width: 1100px) {
+  .hdr { padding: 16px 24px; }
+  .hdr-left h1 { font-size: 18px; }
+  .hdr-right { display: none; }
+  .tabs { padding: 0 24px; }
+  .tab { padding: 12px 12px 10px; font-size: 10px; letter-spacing: 0.05em; }
+  .panel { padding: 20px 24px 40px; }
+  /* Keep columns side by side, shrink min-widths */
+  .col       { flex: 1 1 180px; min-width: 180px; }
+  .col-wide  { flex: 1.6 1 200px; min-width: 200px; }
+  .col-narrow{ flex: 0.8 1 160px; min-width: 160px; }
+  .cols { gap: 14px; }
+  .cols-pair { flex-direction: row; flex-wrap: wrap; gap: 14px; }
+  .cols-pair .col { flex: 1 1 180px; min-width: 180px; }
+  .iq { font-size: 13px; max-width: 100%; }
+}
+
+/* Mobile: up to 600px — now stack */
+@media (max-width: 600px) {
+  .hdr { padding: 14px 16px; flex-direction: column; align-items: flex-start; gap: 2px; }
+  .hdr-left h1 { font-size: 16px; }
+  .hdr-left p { font-size: 11px; }
+  .hdr-right { display: none; }
+
+  .tabs { padding: 0 16px; }
+  .tab { padding: 10px 10px 9px; font-size: 9px; letter-spacing: 0.04em; }
+
+  .panel { padding: 16px 16px 36px; }
+
+  .cols { flex-direction: column; gap: 12px; }
+  .cols-pair { flex-direction: column; }
+  .cols-pair .col { flex: 1 1 100%; min-width: 0; }
+  .col, .col-wide, .col-narrow { flex: 1 1 100%; min-width: 0; width: 100%; }
+
+  .card { padding: 14px; margin-bottom: 12px; border-radius: 8px; }
+  .card-hd { font-size: 9px; margin-bottom: 10px; }
+
+  /* Matrix grid stays 2x2 but smaller */
+  .mat-wrap { padding: 20px 0 0 20px; }
+  .mat-grid { gap: 5px; }
+  .mat-cell { padding: 10px 8px; }
+  .cell-id { font-size: 18px; }
+  .cell-name { font-size: 9px; }
+  .cell-tag { font-size: 9px; }
+
+  /* Stats wrap tighter */
+  .stats { gap: 8px; }
+  .stat { padding: 8px 10px; min-width: 76px; }
+  .stat-v { font-size: 17px; }
+  .stat-l { font-size: 8px; }
+
+  /* Controls stack */
+  .ctrl { flex-direction: column; align-items: flex-start; gap: 6px; margin-bottom: 12px; }
+  .ctrl-lbl { min-width: unset; font-size: 11px; }
+  input[type=range] { width: 100%; max-width: 240px; }
+  select { width: 100%; max-width: 280px; font-size: 13px; }
+
+  /* Buttons full width on mobile */
+  .btn { padding: 9px 14px; font-size: 10px; }
+
+  /* Tables scroll horizontally */
+  .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tbl th { font-size: 9px; padding: 6px 8px; }
+  .tbl td { font-size: 12px; padding: 7px 8px; }
+  .tbl .lc { font-size: 11px; }
+  .tbl .mc { font-size: 12px; }
+
+  /* Insight */
+  .insight { font-size: 12px; padding: 10px 12px; }
+
+  /* Intro quote */
+  .iq { font-size: 12px; line-height: 1.7; margin-bottom: 14px; }
+
+  /* TOD bar labels hidden on small screens */
+  .tod-seg { font-size: 0; }
+  .tod-seg.on { font-size: 8px; }
+
+  /* AV fill labels */
+  .av-fill-h, .av-fill-a { font-size: 8px; }
+
+  /* Path box */
+  .path-box { max-height: 80px; }
+
+  /* Canvas heights managed by setCanvasHeights() JS function */
+
+  /* Sim current state display */
+  #s-cur { font-size: 44px !important; }
+}
+
+/* Very small screens */
+@media (max-width: 380px) {
+  .hdr-left h1 { font-size: 14px; }
+  .tab { padding: 9px 8px 8px; }
+  .panel { padding: 12px 12px 28px; }
+  .card { padding: 12px; }
+  .stat { min-width: 68px; }
+  .stat-v { font-size: 15px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="hdr">
+  <div class="hdr-left">
+    <h1>The Matrix beneath the Map</h1>
+    <p>Interactive simulation of urban ride-hailing economics</p>
+  </div>
+  <div class="hdr-right">Essay by Ashwinikumar Patil<br><span style="color:var(--faint)">Tight Margins · Mar 2026</span></div>
+</div>
+
+<div class="tabs">
+  <button class="tab on" onclick="goto('t1',this)">1 · The Matrix</button>
+  <button class="tab" onclick="goto('t2',this)">2 · Driver Day</button>
+  <button class="tab" onclick="goto('t3',this)">3 · Knowledge Tiers</button>
+  <button class="tab" onclick="goto('t4',this)">4 · Temporal Dynamics</button>
+  <button class="tab" onclick="goto('t5',this)">5 · Transit Intervention</button>
+  <button class="tab" onclick="goto('t6',this)">6 · AV Transition</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TAB 1: THE MATRIX -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="t1" class="panel on">
+  <p class="iq">"Every trip in a city — every single one — lands somewhere on this matrix. The destination of one trip becomes the initial condition for the next. The driver's day is a random walk through this matrix, and daily income is a chain property, not a trip property."</p>
+
+  <div class="cols" style="align-items:stretch">
+    <div class="col-narrow">
+      <div class="card">
+        <div class="card-hd">Origin-Destination Matrix</div>
+        <div class="mat-wrap">
+          <div class="ax-y">Destination density →</div>
+          <div class="mat-grid" id="m1">
+            <div class="mat-cell B" onclick="showCell('B')">
+              <div class="cell-id B">B</div>
+              <div class="cell-name">Dense origin<br>Sparse destination</div>
+              <div class="cell-tag B">Ejection Event</div>
+            </div>
+            <div class="mat-cell A" onclick="showCell('A')">
+              <div class="cell-id A">A</div>
+              <div class="cell-name">Dense origin<br>Dense destination</div>
+              <div class="cell-tag A">Driver's Optimum</div>
+            </div>
+            <div class="mat-cell C" onclick="showCell('C')">
+              <div class="cell-id C">C</div>
+              <div class="cell-name">Sparse origin<br>Sparse destination</div>
+              <div class="cell-tag C">Worst Economics</div>
+            </div>
+            <div class="mat-cell D" onclick="showCell('D')">
+              <div class="cell-id D">D</div>
+              <div class="cell-name">Sparse origin<br>Dense destination</div>
+              <div class="cell-tag D">Recovery Trip</div>
+            </div>
+          </div>
+          <div class="ax-x">Origin population density</div>
+          <div class="ax-x-ends"><span>LOW</span><span>HIGH</span></div>
+        </div>
+      </div>
+
+      <div class="card" id="cell-card">
+        <div class="card-hd">Select a quadrant</div>
+        <div style="color:var(--muted);font-style:italic;font-size:13px">Click a cell above to explore its economics.</div>
+      </div>
+    </div>
+
+    <div class="col-wide">
+      <div class="card">
+        <div class="card-hd">Transition Probability Matrix</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px;font-style:italic">Where does a driver go next? Baseline Indian city. Rows = current state, columns = next state.</p>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead>
+            <tr>
+              <th>From</th>
+              <th style="color:var(--A)">→ A</th>
+              <th style="color:var(--B)">→ B</th>
+              <th style="color:var(--C)">→ C</th>
+              <th style="color:var(--D)">→ D</th>
+              <th>Chain verdict</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="pill A">A</span></td>
+              <td class="mc g">65%</td><td class="mc">22%</td><td class="mc">5%</td><td class="mc">8%</td>
+              <td style="color:var(--A);font-size:12px">Self-reinforcing ↑↑</td>
+            </tr>
+            <tr>
+              <td><span class="pill B">B</span></td>
+              <td class="mc">15%</td><td class="mc">10%</td><td class="mc y">55%</td><td class="mc">20%</td>
+              <td style="color:var(--C);font-size:12px">Destabilising ↓</td>
+            </tr>
+            <tr>
+              <td><span class="pill C">C</span></td>
+              <td class="mc">8%</td><td class="mc">12%</td><td class="mc r">50%</td><td class="mc">30%</td>
+              <td style="color:var(--C);font-size:12px">Catastrophic trap ↓↓</td>
+            </tr>
+            <tr>
+              <td><span class="pill D">D</span></td>
+              <td class="mc g">55%</td><td class="mc">28%</td><td class="mc">7%</td><td class="mc">10%</td>
+              <td style="color:var(--A);font-size:12px">Recovery → A ↑</td>
+            </tr>
+          </tbody>
+        </table></div>
+        <div class="insight" style="margin-top:14px">
+          <strong>The chain dynamic:</strong> A single A→B ejection cascades into C with 55% probability. Recovery from C requires a D-type trip (30% chance), which then returns to A (55%). Two destructive transitions can trap a driver for hours. The platform earns its take rate through all of it.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">η by Quadrant — Efficiency Ratio</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:12px;font-style:italic">η = chargeable km ÷ total km driven. The primary determinant of whether driving is economically viable.</p>
+        <canvas id="c-eta" height="110"></canvas>
+        <div style="display:flex;gap:16px;margin-top:10px;font-size:11px;flex-wrap:wrap">
+          <span><span class="pill A">A</span> η 0.68–0.78</span>
+          <span><span class="pill B">B</span> η 0.42–0.52</span>
+          <span><span class="pill C">C</span> η 0.30–0.42</span>
+          <span><span class="pill D">D</span> η 0.54–0.64</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TAB 2: DRIVER DAY -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="t2" class="panel">
+  <p class="iq">"Two drivers who complete the same number of trips at the same average fare can have wildly different take-home incomes if their transition paths differ. One stayed in the top-right; the other got ejected early and spent the day clawing back."</p>
+
+  <div class="cols">
+    <div class="col-narrow">
+      <div class="card">
+        <div class="card-hd">Simulation Setup</div>
+        <div class="ctrl">
+          <span class="ctrl-lbl">Driver tier</span>
+          <select id="s-tier" onchange="resetSim()">
+            <option value="1">Tier 1 — Matrix Reader</option>
+            <option value="2" selected>Tier 2 — Partial Reader</option>
+            <option value="3">Tier 3 — Matrix Blind</option>
+          </select>
+        </div>
+        <div class="ctrl">
+          <span class="ctrl-lbl">Platform</span>
+          <select id="s-plat" onchange="resetSim()">
+            <option value="trad">Traditional (no take rate)</option>
+            <option value="plat" selected>Platform (20% take)</option>
+          </select>
+        </div>
+        <div class="ctrl">
+          <span class="ctrl-lbl">Trips to run</span>
+          <input type="range" id="s-n" min="5" max="25" value="15" oninput="document.getElementById('s-nv').textContent=this.value">
+          <span class="rv" id="s-nv">15</span>
+        </div>
+        <div class="ctrl">
+          <span class="ctrl-lbl">Start quadrant</span>
+          <select id="s-start">
+            <option value="A">A — Dense zone</option>
+            <option value="B">B — Just ejected</option>
+            <option value="C">C — Sparse zone</option>
+            <option value="D">D — Recovery</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button class="btn btn-gold" onclick="runSim()">▶ Run</button>
+          <button class="btn btn-dim" onclick="resetSim()">↺ Reset</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">Current State</div>
+        <div style="text-align:center;padding:8px 0">
+          <div id="s-cur" style="font-family:'IBM Plex Mono',monospace;font-size:56px;font-weight:500;color:var(--muted);line-height:1;transition:color .3s">—</div>
+          <div id="s-curdesc" style="font-size:12px;color:var(--muted);margin-top:6px;font-style:italic">Not running</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">Platform Economics</div>
+        <div id="s-plat-box" style="font-size:12px;color:var(--muted);font-style:italic">Run a simulation to see platform vs driver split.</div>
+      </div>
+    </div>
+
+    <div class="col-wide">
+      <div class="stats">
+        <div class="stat"><div class="stat-l">η ratio</div><div class="stat-v y" id="sv-eta">—</div></div>
+        <div class="stat"><div class="stat-l">Revenue ₹</div><div class="stat-v g" id="sv-rev">—</div></div>
+        <div class="stat"><div class="stat-l">Fuel ₹</div><div class="stat-v r" id="sv-fuel">—</div></div>
+        <div class="stat"><div class="stat-l">Net ₹</div><div class="stat-v w" id="sv-net">—</div></div>
+        <div class="stat"><div class="stat-l">Deadhead km</div><div class="stat-v b" id="sv-dead">—</div></div>
+        <div class="stat"><div class="stat-l">Trips done</div><div class="stat-v w" id="sv-trips">—</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">Trip Chain</div>
+        <div class="path-box" id="s-path">Simulation not started.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">Cumulative Net Earnings</div>
+        <canvas id="c-earn" height="130"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">η Trajectory (per trip)</div>
+        <canvas id="c-eta-sim" height="90"></canvas>
+      </div>
+
+      <div class="insight" id="s-insight" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TAB 3: KNOWLEDGE TIERS -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="t3" class="panel">
+  <p class="iq">"Not because they are lazy. Not because their vehicle is inferior. Because they cannot read the matrix. Deadhead kilometres are a tax on transition illiteracy."</p>
+
+  <div class="cols">
+    <div class="col-narrow">
+      <div class="card">
+        <div class="card-hd">Parameters</div>
+        <div class="ctrl"><span class="ctrl-lbl">Working days</span><input type="range" id="t-days" min="20" max="28" value="26" oninput="updT()"><span class="rv" id="t-dv">26</span></div>
+        <div class="ctrl"><span class="ctrl-lbl">EMI+insurance ₹/day</span><input type="range" id="t-emi" min="200" max="700" value="450" step="50" oninput="updT()"><span class="rv" id="t-ev">450</span></div>
+        <div class="ctrl"><span class="ctrl-lbl">Fuel ₹/km</span><input type="range" id="t-fuel" min="4" max="9" value="6" oninput="updT()"><span class="rv" id="t-fv">6</span></div>
+        <div class="ctrl"><span class="ctrl-lbl">Take rate %</span><input type="range" id="t-take" min="0" max="30" value="20" oninput="updT()"><span class="rv" id="t-tv">20</span></div>
+        <div class="ctrl"><span class="ctrl-lbl">Rate ₹/km</span><input type="range" id="t-rate" min="8" max="16" value="12" oninput="updT()"><span class="rv" id="t-rv">12</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">Altruism Tax</div>
+        <p style="font-size:12px;color:var(--muted);font-style:italic;margin-bottom:10px">How often does Tier 3 accept chain-destroying ejection trips?</p>
+        <div class="ctrl"><span class="ctrl-lbl">Altruistic trips/week</span><input type="range" id="t-alt" min="0" max="5" value="2" oninput="updT()"><span class="rv" id="t-av">2</span></div>
+        <div id="t-alt-impact" style="font-size:12px;color:var(--muted);margin-top:8px;font-style:italic"></div>
+      </div>
+    </div>
+
+    <div class="col-wide">
+      <div class="cols cols-pair" style="margin-bottom:0">
+        <div class="col" style="min-width:180px">
+          <div class="card">
+            <div class="card-hd">Monthly Income</div>
+            <canvas id="c-tier-month" height="160"></canvas>
+          </div>
+        </div>
+        <div class="col" style="min-width:180px">
+          <div class="card">
+            <div class="card-hd">Cumulative Gap (12 months)</div>
+            <canvas id="c-tier-cum" height="160"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">Full Breakdown</div>
+        <div class="tbl-wrap"><table class="tbl" id="t-tbl">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th style="color:var(--A)">Tier 1 (η=0.73)</th>
+              <th style="color:var(--C)">Tier 3 (η=0.45)</th>
+              <th>Gap</th>
+            </tr>
+          </thead>
+          <tbody id="t-tbody"></tbody>
+        </table></div>
+      </div>
+
+      <div class="insight" id="t-insight"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TAB 4: TEMPORAL -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="t4" class="panel">
+  <p class="iq">"The matrix is not static. It rotates, compresses, and expands across the hours of the day. The evening commute is when drivers lose money they made during the day."</p>
+
+  <div class="card">
+    <div class="card-hd">Select a time window</div>
+    <div class="tod-bar" id="tod-bar">
+      <div class="tod-seg on" style="width:12%;background:rgba(99,102,241,0.25);color:#a5b4fc" data-t="night" onclick="setTOD('night',this)">Night</div>
+      <div class="tod-seg" style="width:13%;background:rgba(99,102,241,0.4);color:#a5b4fc" data-t="morn" onclick="setTOD('morn',this)">Morning</div>
+      <div class="tod-seg" style="width:24%;background:rgba(16,185,129,0.45);color:#6ee7b7" data-t="mid" onclick="setTOD('mid',this)">Midday</div>
+      <div class="tod-seg" style="width:18%;background:rgba(245,158,11,0.45);color:#fcd34d" data-t="eve" onclick="setTOD('eve',this)">Evening</div>
+      <div class="tod-seg" style="width:18%;background:rgba(239,68,68,0.35);color:#fca5a5" data-t="late" onclick="setTOD('late',this)">Late Night</div>
+      <div class="tod-seg" style="width:15%;background:rgba(99,102,241,0.25);color:#a5b4fc" data-t="night2" onclick="setTOD('night2',this)">Night</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--faint);padding:0 2px">
+      <span>12AM</span><span>7AM</span><span>10AM</span><span>4PM</span><span>8PM</span><span>10PM</span><span>12AM</span>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="col-narrow">
+      <div class="card">
+        <div class="card-hd">Matrix at <span id="tod-lbl" style="color:var(--gold)">Night</span></div>
+        <div class="mat-wrap">
+          <div class="ax-y">Destination density →</div>
+          <div class="mat-grid">
+            <div class="mat-cell B" style="padding:12px 10px">
+              <div class="cell-id B" style="font-size:18px">B</div>
+              <div id="tod-B-p" style="font-family:'IBM Plex Mono',monospace;font-size:20px;margin:4px 0"></div>
+              <div id="tod-B-d" class="cell-name"></div>
+            </div>
+            <div class="mat-cell A" style="padding:12px 10px">
+              <div class="cell-id A" style="font-size:18px">A</div>
+              <div id="tod-A-p" style="font-family:'IBM Plex Mono',monospace;font-size:20px;margin:4px 0"></div>
+              <div id="tod-A-d" class="cell-name"></div>
+            </div>
+            <div class="mat-cell C" style="padding:12px 10px">
+              <div class="cell-id C" style="font-size:18px">C</div>
+              <div id="tod-C-p" style="font-family:'IBM Plex Mono',monospace;font-size:20px;margin:4px 0"></div>
+              <div id="tod-C-d" class="cell-name"></div>
+            </div>
+            <div class="mat-cell D" style="padding:12px 10px">
+              <div class="cell-id D" style="font-size:18px">D</div>
+              <div id="tod-D-p" style="font-family:'IBM Plex Mono',monospace;font-size:20px;margin:4px 0"></div>
+              <div id="tod-D-d" class="cell-name"></div>
+            </div>
+          </div>
+          <div class="ax-x">Origin density</div>
+          <div class="ax-x-ends"><span>LOW</span><span>HIGH</span></div>
+        </div>
+      </div>
+
+      <div class="insight" id="tod-insight"></div>
+    </div>
+
+    <div class="col-wide">
+      <div class="card">
+        <div class="card-hd">Trip distribution across the day (all quadrants)</div>
+        <canvas id="c-tod-dist" height="150"></canvas>
+        <div style="display:flex;gap:14px;margin-top:8px;font-size:11px;flex-wrap:wrap">
+          <span><span class="pill A">A</span> Dense→Dense</span>
+          <span><span class="pill B">B</span> Dense→Sparse</span>
+          <span><span class="pill C">C</span> Sparse→Sparse</span>
+          <span><span class="pill D">D</span> Sparse→Dense</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">Expected driver η across the day</div>
+        <canvas id="c-tod-eta" height="110"></canvas>
+        <div class="insight" style="margin-top:12px">
+          <strong>The time-budget trap:</strong> Drivers who catch the morning D-flow arrive downtown just as oversupply peaks. Midday is productive — but only if you're already positioned there. The evening B-wave destroys what midday built. η traces a hill, and most drivers stand on the wrong side of it.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TAB 5: TRANSIT -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="t5" class="panel">
+  <p class="iq">"Public transit is the only intervention that changes the matrix's structure rather than redistributing its costs. A metro station in a sparse zone is a density injector. It changes the physics of the matrix in its vicinity."</p>
+
+  <div class="cols">
+    <div class="col-narrow">
+      <div class="card">
+        <div class="card-hd">Metro Investment</div>
+        <div class="ctrl"><span class="ctrl-lbl">Stations built</span><input type="range" id="tr-s" min="0" max="10" value="0" oninput="updTr()"><span class="rv" id="tr-sv">0</span></div>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between;font-size:12px">
+            <span style="color:var(--muted);font-style:italic">Commuter modal shift</span>
+            <span id="tr-shift" style="font-family:'IBM Plex Mono',monospace;color:var(--gold)">0%</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px">
+            <span style="color:var(--muted);font-style:italic">Last-mile trips/hour</span>
+            <span id="tr-lm" style="font-family:'IBM Plex Mono',monospace;color:var(--D)">0</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px">
+            <span style="color:var(--muted);font-style:italic">Ejection trips absorbed</span>
+            <span id="tr-ej" style="font-family:'IBM Plex Mono',monospace;color:var(--A)">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">Matrix Before</div>
+        <div class="mat-grid" style="gap:5px;max-width:220px" id="tr-pre-mat">
+          <div class="mat-cell B" style="padding:10px"><div class="cell-id B" style="font-size:15px">B</div><div id="tr-preB" class="cell-name" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--B)"></div></div>
+          <div class="mat-cell A" style="padding:10px"><div class="cell-id A" style="font-size:15px">A</div><div id="tr-preA" class="cell-name" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--A)"></div></div>
+          <div class="mat-cell C" style="padding:10px"><div class="cell-id C" style="font-size:15px">C</div><div id="tr-preC" class="cell-name" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--C)"></div></div>
+          <div class="mat-cell D" style="padding:10px"><div class="cell-id D" style="font-size:15px">D</div><div id="tr-preD" class="cell-name" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--D)"></div></div>
+        </div>
+      </div>
+      <div style="text-align:center;font-size:22px;color:var(--gold);margin:-8px 0">↓</div>
+      <div class="card" style="margin-top:8px">
+        <div class="card-hd">Matrix After</div>
+        <div class="mat-grid" style="gap:5px;max-width:220px">
+          <div class="mat-cell B" style="padding:10px"><div class="cell-id B" style="font-size:15px">B</div><div id="tr-postB" class="cell-name" style="font-family:'IBM Plex Mono',monospace;font-size:13px"></div></div>
+          <div class="mat-cell A" style="padding:10px"><div class="cell-id A" style="font-size:15px">A</div><div id="tr-postA" class="cell-name" style="font-family:'IBM Plex Mono',monospace;font-size:13px"></div></div>
+          <div class="mat-cell C" style="padding:10px"><div class="cell-id C" style="font-size:15px">C</div><div id="tr-postC" class="cell-name" style="font-family:'IBM Plex Mono',monospace;font-size:13px"></div></div>
+          <div class="mat-cell D" style="padding:10px"><div class="cell-id D" style="font-size:15px">D</div><div id="tr-postD" class="cell-name" style="font-family:'IBM Plex Mono',monospace;font-size:13px"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-wide">
+      <div class="card">
+        <div class="card-hd">Driver η as metro expands</div>
+        <canvas id="c-tr-eta" height="140"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">Three mechanisms of matrix reshaping</div>
+        <div id="tr-mechs"></div>
+      </div>
+
+      <div class="insight" id="tr-insight"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TAB 6: AV TRANSITION -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="t6" class="panel">
+  <p class="iq">"This is not mass layoffs. It is progressive income collapse, pattern by pattern. As AVs capture the best trips, the average revenue per trip for human drivers falls. But the EMI continues. The human driver becomes the sparse-zone specialist — the worst possible position in the matrix."</p>
+
+  <div class="cols">
+    <div class="col">
+      <div class="card">
+        <div class="card-hd">Timeline</div>
+        <div class="ctrl"><span class="ctrl-lbl">Year</span><input type="range" id="av-yr" min="2025" max="2040" value="2025" oninput="updAV()"><span class="rv" id="av-yrv">2025</span></div>
+        <div class="ctrl"><span class="ctrl-lbl">Transit coverage</span><input type="range" id="av-tr" min="0" max="100" value="20" oninput="updAV()"><span class="rv" id="av-trv">20</span>%</div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">Trip capture — Quadrant A (dense)</div>
+        <div class="av-bar-wrap"><div class="av-fill-h" id="av-hA">HUMAN</div><div class="av-fill-a" id="av-aA">AV</div></div>
+        <div class="card-hd" style="margin-top:16px">Trip capture — Quadrant C (sparse)</div>
+        <div class="av-bar-wrap"><div class="av-fill-h" id="av-hC">HUMAN</div><div class="av-fill-a" id="av-aC">AV</div></div>
+        <div class="insight" style="margin-top:12px;font-size:12px" id="av-gap">
+          AVs are most profitable on A-quadrant trips. They cream-skim the top-right while human drivers are pushed into C and B — the worst positions.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">Labour asymmetry: before vs after</div>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>Factor</th><th>Today</th><th>AV era</th></tr></thead>
+          <tbody>
+            <tr><td class="lc">Deadhead cost</td><td style="color:var(--C);font-size:12px">Driver</td><td style="color:var(--gold);font-size:12px">Platform</td></tr>
+            <tr><td class="lc">Optimises η</td><td style="color:var(--C);font-size:12px">Each driver</td><td style="color:var(--A);font-size:12px">Fleet algorithm</td></tr>
+            <tr><td class="lc">Altruism trap</td><td style="color:var(--C);font-size:12px">Coerced</td><td style="color:var(--muted);font-size:12px">Economics only</td></tr>
+            <tr><td class="lc">Sparse service</td><td style="color:var(--A);font-size:12px">Cross-subsidised</td><td style="color:var(--C);font-size:12px">Priced or unserved</td></tr>
+            <tr><td class="lc">Driver knowledge</td><td style="color:var(--A);font-size:12px">Tier 1 moat</td><td style="color:var(--C);font-size:12px">Irrelevant</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <div class="card-hd">Human driver income vs AV fleet revenue vs platform total</div>
+        <canvas id="c-av" height="190"></canvas>
+        <div style="display:flex;gap:16px;margin-top:8px;font-size:11px;flex-wrap:wrap">
+          <span style="color:#6366f1">■ Human driver income</span>
+          <span style="color:#f59e0b">■ AV fleet revenue</span>
+          <span style="color:rgba(0,0,0,0.35)">■ Platform total</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">What trips remain for human drivers in <span id="av-yr-lbl" style="color:var(--gold)">2025</span></div>
+        <div id="av-remain" style="font-size:13px;line-height:1.8;color:var(--muted)"></div>
+      </div>
+
+      <div class="insight" id="av-insight"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════
+function el(id){ return document.getElementById(id) }
+
+function getCtx(id){
+  const c = el(id);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+  // Collapse canvas so it doesn't inflate its parent, then measure the parent
+  c.style.width  = '1px';
+  c.style.height = '1px';
+
+  // Find closest ancestor with real rendered width, accounting for padding
+  let w = 0;
+  let node = c.parentElement;
+  while(node && node !== document.body){
+    const style = window.getComputedStyle(node);
+    if(style.display === 'none'){ node = node.parentElement; continue; }
+    const pad = parseFloat(style.paddingLeft||0) + parseFloat(style.paddingRight||0);
+    const border = parseFloat(style.borderLeftWidth||0) + parseFloat(style.borderRightWidth||0);
+    const inner = node.getBoundingClientRect().width - pad - border;
+    if(inner > 20){ w = Math.floor(inner); break; }
+    node = node.parentElement;
+  }
+  w = Math.max(Math.min(w || 500, 1400), 80);
+
+  // Height: use data attribute set by setCanvasHeights, else HTML attribute
+  const targetH = parseInt(c.dataset.renderH || c.dataset.baseH || c.getAttribute('height')) || 150;
+  const h = Math.min(targetH, 800);
+
+  const pw = Math.floor(w * dpr);
+  const ph = Math.floor(h * dpr);
+  c.style.width  = w + 'px';
+  c.style.height = h + 'px';
+  c.width  = pw;
+  c.height = ph;
+
+  const ctx = c.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.W = w; ctx.H = h;
+  return ctx;
+}
+
+
+function setCanvasHeights(){
+  const mobile = window.innerWidth <= 600;
+  const shrink = {190:150,180:140,160:130,150:120,140:110,130:110,120:100,110:90,90:80};
+  document.querySelectorAll('canvas[height]').forEach(c=>{
+    const base = parseInt(c.getAttribute('height'));
+    c.dataset.baseH = base;
+    const target = mobile && shrink[base] ? shrink[base] : base;
+    c.dataset.renderH = target;
+    c.style.height = target + 'px';
+  });
+}
+
+function drawBars(id, labels, datasets, opts={}){
+  const ctx = getCtx(id);
+  const {W,H} = ctx;
+  ctx.clearRect(0,0,W,H);
+  const p = {t:16,r:16,b:28,l:46};
+  const cw = W-p.l-p.r, ch = H-p.t-p.b;
+  const maxV = opts.max || Math.max(...datasets.flatMap(d=>d.data)) * 1.15 || 1;
+  const n = labels.length, ng = datasets.length;
+  const gw = cw/n, bw = gw*0.65/ng, gap = gw*0.35/(ng+1);
+
+  // grid
+  for(let i=0;i<=4;i++){
+    const y = p.t + ch*(1-i/4);
+    ctx.strokeStyle='rgba(0,0,0,0.06)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(p.l,y); ctx.lineTo(p.l+cw,y); ctx.stroke();
+    ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.font='9px IBM Plex Mono,monospace'; ctx.textAlign='right';
+    ctx.fillText(Math.round(maxV*i/4), p.l-4, y+3);
+  }
+
+  datasets.forEach((ds,di)=>{
+    ds.data.forEach((v,i)=>{
+      const x = p.l + i*gw + gap*(di+1) + bw*di;
+      const h2 = (v/maxV)*ch;
+      ctx.fillStyle = ds.color;
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(x, p.t+ch-h2, bw, h2, [2,2,0,0]) : ctx.rect(x, p.t+ch-h2, bw, h2);
+      ctx.fill();
+    });
+  });
+
+  ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.font='10px Lora,serif'; ctx.textAlign='center';
+  labels.forEach((l,i)=>{ ctx.fillText(l, p.l+i*gw+gw/2, H-6) });
+}
+
+function drawLines(id, labels, datasets, opts={}){
+  const ctx = getCtx(id);
+  const {W,H} = ctx;
+  ctx.clearRect(0,0,W,H);
+  const p = {t:14,r:16,b:26,l:46};
+  const cw = W-p.l-p.r, ch = H-p.t-p.b;
+  const all = datasets.flatMap(d=>d.data);
+  const minV = opts.min !== undefined ? opts.min : Math.min(...all);
+  const maxV = opts.max !== undefined ? opts.max : Math.max(...all)*1.08;
+  const range = maxV-minV || 1;
+  const n = labels.length;
+  const xs = i => p.l + (n>1 ? i*(cw/(n-1)) : cw/2);
+  const ys = v => p.t + ch - ((v-minV)/range)*ch;
+
+  for(let i=0;i<=4;i++){
+    const y = p.t + ch*i/4;
+    ctx.strokeStyle='rgba(0,0,0,0.06)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(p.l,y); ctx.lineTo(p.l+cw,y); ctx.stroke();
+    ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.font='9px IBM Plex Mono,monospace'; ctx.textAlign='right';
+    ctx.fillText(Math.round(maxV-(range*i/4)), p.l-4, y+3);
+  }
+
+  // zero line
+  if(minV<0 && maxV>0){
+    const zy=ys(0);
+    ctx.setLineDash([4,4]); ctx.strokeStyle='rgba(0,0,0,0.12)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(p.l,zy); ctx.lineTo(p.l+cw,zy); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  datasets.forEach(ds=>{
+    if(!ds.data || ds.data.length<2) return;
+    // fill
+    if(ds.fill){
+      ctx.beginPath();
+      ds.data.forEach((v,i)=>{ i===0?ctx.moveTo(xs(i),ys(v)):ctx.lineTo(xs(i),ys(v)) });
+      const baseY = minV<0?ys(0):p.t+ch;
+      ctx.lineTo(xs(n-1),baseY); ctx.lineTo(xs(0),baseY); ctx.closePath();
+      ctx.fillStyle=ds.fill; ctx.fill();
+    }
+    // line
+    ctx.beginPath();
+    ds.data.forEach((v,i)=>{ i===0?ctx.moveTo(xs(i),ys(v)):ctx.lineTo(xs(i),ys(v)) });
+    ctx.strokeStyle=ds.color; ctx.lineWidth=2; ctx.lineJoin='round'; ctx.stroke();
+  });
+
+  const step = Math.ceil(n/8);
+  ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.font='10px Lora,serif'; ctx.textAlign='center';
+  labels.forEach((l,i)=>{ if(i%step===0||i===n-1) ctx.fillText(l, xs(i), H-5) });
+}
+
+// ═══════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════
+function goto(id, btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  el(id).classList.add('on');
+  btn.classList.add('on');
+  // Triple rAF: panel visible -> layout settled -> sizes final
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        setCanvasHeights();
+        if(id==='t2') resetSim();
+        else renderTab(id);
+      });
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════
+// TAB 1
+// ═══════════════════════════════════════════════
+const CELLS = {
+  A:{
+    color:'var(--A)',title:'Quadrant A — Dense origin, dense destination',
+    body:`The driver's optimum. Trips are easy to find at the origin, and the destination positions the driver for another immediate trip. Deadheading is minimal. These trips sustain a driver's day not because any single fare is exceptional, but because they <em>preserve the chain</em>.`,
+    rows:[
+      ['η range','0.68–0.78','Primary economic engine'],
+      ['Chain effect','Self-reinforcing (65% A→A)','Each trip funds the next'],
+      ['Platform relationship','Takes 20%, bears 0% of deadhead','Asymmetry fully exposed'],
+      ['Rider experience','Best: short wait, low price, reliable','These riders need it least'],
+    ]
+  },
+  B:{
+    color:'var(--B)',title:'Quadrant B — Dense origin, sparse destination',
+    body:`The ejection event. The trip itself may pay well — a long fare to the suburbs — but it deposits the driver in a location where the next trip is far away and the chain is broken. <em>The fare looks good on the receipt. The two hours of deadheading back to a productive zone do not appear on any receipt.</em>`,
+    rows:[
+      ['η range','0.42–0.52','Post-ejection deadhead dominates'],
+      ['Chain effect','Destabilising: 55% cascade to C','One trip can destroy an evening'],
+      ['Platform relationship','Earns take rate, pays nothing for deadhead','Hidden subsidy extracted'],
+      ['Rider experience','Good service, unaware of driver cost','Structural ignorance'],
+    ]
+  },
+  C:{
+    color:'var(--C)',title:'Quadrant C — Sparse origin, sparse destination',
+    body:`The worst economics. Hard to find (low demand), low fare, and destructive aftermath. Tier 3 drivers become structurally insolvent here. Rural and semi-urban ride-hailing operates almost entirely in this quadrant — which is why it requires the highest subsidies and burns cash fastest.`,
+    rows:[
+      ['η range','0.30–0.42','Near-total deadhead overhead'],
+      ['Chain effect','Catastrophic: 50% remain in C','Self-perpetuating trap'],
+      ['Platform relationship','Highest CAC, still takes cut','Geographic indifference'],
+      ['Rider experience','Worst: long wait, surge, low reliability','These riders need it most'],
+    ]
+  },
+  D:{
+    color:'var(--D)',title:'Quadrant D — Sparse origin, dense destination',
+    body:`The recovery trip. A driver stranded in a low-density area catches a fare heading back toward a dense zone. The fare may be modest, but the destination is the real payoff: it re-inserts the driver into the productive part of the matrix. <em>Positive chain externalities — invisible in any fare calculation.</em>`,
+    rows:[
+      ['η range','0.54–0.64','Recovery dynamics improving'],
+      ['Chain effect','55% transition to A — key recovery','Tier 1 drivers actively seek these'],
+      ['Platform relationship','Earns take rate, provides no signal',"Doesn't tell drivers this trip is valuable"],
+      ['Rider experience','Decent service, accidental beneficiary','Riders here subsidised by stranded drivers'],
+    ]
+  }
+};
+
+function showCell(q){
+  document.querySelectorAll('.mat-cell').forEach(c=>c.classList.remove('lit'));
+  document.querySelectorAll('.mat-cell.'+q).forEach(c=>c.classList.add('lit'));
+  const d = CELLS[q];
+  el('cell-card').innerHTML = `
+    <div class="card-hd" style="color:${d.color}">${d.title}</div>
+    <p style="font-size:13px;color:var(--text);margin-bottom:12px;line-height:1.7">${d.body}</p>
+    <div class="tbl-wrap"><table class="tbl">
+      ${d.rows.map(r=>`<tr><td class="lc">${r[0]}</td><td class="mc">${r[1]}</td><td style="font-size:11px;color:var(--muted);font-style:italic">${r[2]}</td></tr>`).join('')}
+    </table></div>`;
+}
+
+function renderT1(){
+  drawBars('c-eta',['A','B','C','D'],[
+    {data:[73,47,36,59],color:'rgba(16,185,129,0.7)'},
+    {data:[78,52,42,64],color:'rgba(16,185,129,0.25)'},
+  ],{max:100});
+}
+
+// ═══════════════════════════════════════════════
+// TAB 2: DRIVER SIM
+// ═══════════════════════════════════════════════
+const TM = {
+  1:{A:[.75,.12,.03,.10],B:[.38,.08,.22,.32],C:[.22,.10,.30,.38],D:[.72,.18,.02,.08]},
+  2:{A:[.65,.22,.05,.08],B:[.18,.10,.50,.22],C:[.10,.12,.48,.30],D:[.55,.28,.07,.10]},
+  3:{A:[.55,.30,.08,.07],B:[.10,.12,.62,.16],C:[.06,.14,.60,.20],D:[.40,.38,.12,.10]},
+};
+const EC = {
+  A:{chg:7.5,mult:1.28,rate:12},
+  B:{chg:14,mult:2.1,rate:12},
+  C:{chg:6,mult:2.6,rate:11},
+  D:{chg:8,mult:1.55,rate:11},
+};
+const QDESC = {
+  A:'Dense→Dense (optimal)',
+  B:'Dense→Sparse (ejection)',
+  C:'Sparse→Sparse (worst)',
+  D:'Sparse→Dense (recovery)',
+};
+let simInt=null, simData={};
+
+function resetSim(){
+  if(simInt){clearInterval(simInt);simInt=null;}
+  simData={path:[],earnings:[],etas:[],cum:{rev:0,fuel:0,chg:0,tot:0,platTake:0}};
+  el('s-path').innerHTML='Simulation not started.';
+  el('s-cur').textContent='—'; el('s-cur').style.color='var(--muted)';
+  el('s-curdesc').textContent='Not running';
+  ['sv-eta','sv-rev','sv-fuel','sv-net','sv-dead','sv-trips'].forEach(id=>{el(id).textContent='—'});
+  el('s-insight').style.display='none';
+  el('s-plat-box').innerHTML='<span style="color:var(--muted);font-style:italic">Run a simulation to see platform vs driver split.</span>';
+  const ctx1=getCtx('c-earn'); ctx1.clearRect(0,0,ctx1.W,ctx1.H);
+  const ctx2=getCtx('c-eta-sim'); ctx2.clearRect(0,0,ctx2.W,ctx2.H);
+}
+
+function pick(cur,tier){
+  const p=TM[tier][cur], r=Math.random();
+  let c=0;
+  for(let i=0;i<4;i++){c+=p[i];if(r<=c)return['A','B','C','D'][i];}
+  return 'D';
+}
+
+function runSim(){
+  resetSim();
+  const tier=parseInt(el('s-tier').value);
+  const plat=el('s-plat').value==='plat';
+  const N=parseInt(el('s-n').value);
+  const take=plat?0.20:0;
+  const fuel=6;
+  let cur=el('s-start').value;
+  simData.path=[cur];
+  let step=0;
+
+  simInt=setInterval(()=>{
+    if(step>=N){clearInterval(simInt);simInt=null;finishSim(tier,take);return;}
+    const ec=EC[cur];
+    const chg=ec.chg+(Math.random()-.5)*1.5;
+    const tot=chg*ec.mult;
+    const rev=chg*ec.rate*(1-take);
+    const fu=tot*fuel;
+    const platTake=chg*ec.rate*take;
+    simData.cum.rev+=rev; simData.cum.fuel+=fu;
+    simData.cum.chg+=chg; simData.cum.tot+=tot;
+    simData.cum.platTake+=platTake;
+
+    const etaNow=simData.cum.chg/simData.cum.tot;
+    const netNow=simData.cum.rev-simData.cum.fuel;
+    simData.earnings.push(netNow);
+    simData.etas.push(etaNow);
+
+    el('sv-eta').textContent=etaNow.toFixed(2);
+    el('sv-eta').className='stat-v '+(etaNow>.65?'g':etaNow>.50?'y':'r');
+    el('sv-rev').textContent='₹'+Math.round(simData.cum.rev);
+    el('sv-fuel').textContent='₹'+Math.round(simData.cum.fuel);
+    const netEl=el('sv-net'); netEl.textContent='₹'+Math.round(netNow);
+    netEl.className='stat-v '+(netNow>=0?'g':'r');
+    el('sv-dead').textContent=Math.round(simData.cum.tot-simData.cum.chg)+'km';
+    el('sv-trips').textContent=step+1;
+
+    const curEl=el('s-cur');
+    curEl.textContent=cur; curEl.style.color=`var(--${cur})`;
+    el('s-curdesc').textContent=QDESC[cur];
+
+    const next=pick(cur,tier);
+    simData.path.push(next);
+    renderPath();
+    renderEarnsChart();
+    renderEtaChart();
+
+    if(plat){
+      el('s-plat-box').innerHTML=`
+        <div style="font-size:12px;margin-bottom:6px;color:var(--muted);font-style:italic">Platform vs driver split (cumulative)</div>
+        <div style="display:flex;gap:0;height:18px;border-radius:4px;overflow:hidden;margin-bottom:8px">
+          <div style="flex:${Math.round(simData.cum.rev)};background:rgba(16,185,129,0.5)"></div>
+          <div style="flex:${Math.round(simData.cum.platTake)};background:rgba(239,68,68,0.5)"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px">
+          <span style="color:var(--A)">Driver ₹${Math.round(simData.cum.rev)}</span>
+          <span style="color:var(--C)">Platform ₹${Math.round(simData.cum.platTake)}</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;font-style:italic">Platform deadhead cost: ₹0</div>`;
+    }
+
+    cur=next; step++;
+  },320);
+}
+
+function renderPath(){
+  const el2=el('s-path'); el2.innerHTML='';
+  simData.path.forEach((s,i)=>{
+    if(i>0) el2.innerHTML+='<span class="pa">→</span>';
+    el2.innerHTML+=`<span class="ps ${s}">${s}</span>`;
+  });
+  el2.scrollLeft=el2.scrollWidth;
+}
+
+function renderEarnsChart(){
+  const n=simData.earnings.length;
+  if(n<2)return;
+  const last=simData.earnings[n-1];
+  const canvas=el('c-earn');
+  // If canvas has no real width yet (e.g. first tick), clear fixed width to remeasure
+  if(!canvas.offsetWidth) canvas.style.width='';
+  drawLines('c-earn',simData.earnings.map((_,i)=>i+1+''),[{
+    data:simData.earnings,
+    color:last>=0?'#10b981':'#ef4444',
+    fill:last>=0?'rgba(16,185,129,0.06)':'rgba(239,68,68,0.06)',
+  }],{min:Math.min(0,...simData.earnings)*1.1,max:Math.max(0,...simData.earnings)*1.1});
+}
+
+function renderEtaChart(){
+  if(simData.etas.length<2)return;
+  const canvas=el('c-eta-sim');
+  if(!canvas.offsetWidth) canvas.style.width='';
+  drawLines('c-eta-sim',simData.etas.map((_,i)=>i+1+''),[
+    {data:simData.etas,color:'#f59e0b',fill:'rgba(245,158,11,0.06)'}
+  ],{min:0,max:1});
+}
+
+function finishSim(tier,take){
+  const eta=simData.cum.chg/simData.cum.tot;
+  const net=Math.round(simData.cum.rev-simData.cum.fuel);
+  const tierN={1:'Tier 1 (Matrix Reader)',2:'Tier 2 (Partial Reader)',3:'Tier 3 (Matrix Blind)'}[tier];
+  let msg;
+  if(net<0) msg=`<strong>Structurally insolvent.</strong> ${tierN} finished with <strong style="color:var(--C)">₹${net}</strong> before fixed vehicle costs. η=${eta.toFixed(2)} — the matrix extracted more than it gave back.`;
+  else if(net<300) msg=`<strong>Marginal.</strong> Net ₹${net} before vehicle EMI (₹450+/day). After fixed costs, this driver is at breakeven or below. η=${eta.toFixed(2)}.`;
+  else msg=`<strong>Viable session.</strong> Net ₹${net} before vehicle costs. η=${eta.toFixed(2)} — chain management held. ${take>0?`Platform took ₹${Math.round(simData.cum.platTake)} bearing zero deadhead cost.`:'Traditional — driver kept full fare.'}`;
+  el('s-insight').innerHTML=msg;
+  el('s-insight').style.display='block';
+}
+
+// ═══════════════════════════════════════════════
+// TAB 3: TIERS
+// ═══════════════════════════════════════════════
+function calcTier(trips,chgKm,eta,fuel,rate,take,emi,days,altWeekly){
+  const totKm=chgKm/eta;
+  const dailyRev=trips*chgKm*rate*(1-take);
+  const dailyFuel=trips*totKm*fuel;
+  // altruism: each altruistic trip costs ~₹300 in deadhead/lost chain
+  const altCostMonth=(altWeekly*4.3)*300;
+  const dailyMargin=dailyRev-dailyFuel;
+  const monthlyNet=dailyMargin*days - emi*days - altCostMonth;
+  return {trips,chgKm,eta,totKm:trips*totKm,dailyRev,dailyFuel,dailyMargin,monthlyNet,altCostMonth};
+}
+
+function updT(){
+  const days=+el('t-days').value, emi=+el('t-emi').value, fuel=+el('t-fuel').value;
+  const take=+el('t-take').value/100, rate=+el('t-rate').value, alt=+el('t-alt').value;
+  el('t-dv').textContent=days; el('t-ev').textContent=emi;
+  el('t-fv').textContent=fuel; el('t-tv').textContent=Math.round(take*100);
+  el('t-rv').textContent=rate; el('t-av').textContent=alt;
+
+  const t1=calcTier(15,8,0.73,fuel,rate,take,emi,days,0);
+  const t3=calcTier(12,7.5,0.45,fuel,rate,take,emi,days,alt);
+
+  el('t-alt-impact').textContent=alt>0
+    ?`Altruism cost: ₹${Math.round(alt*4.3*300)}/month — ${alt} ejection trips/week that Tier 3 accepts but Tier 1 refuses.`
+    :'No altruistic trips — pure economics only.';
+
+  const rows=[
+    ['Trips/day',t1.trips,t3.trips,''],
+    ['Avg chg km/trip',t1.chgKm.toFixed(1),t3.chgKm.toFixed(1),''],
+    ['η',t1.eta.toFixed(2),t3.eta.toFixed(2),''],
+    ['Total km/day',t1.totKm.toFixed(0),t3.totKm.toFixed(0),`T3 drives ${Math.round((t3.totKm/t1.totKm-1)*100)}% more km`],
+    ['Deadhead km/day',(t1.totKm-t1.trips*t1.chgKm).toFixed(0),(t3.totKm-t3.trips*t3.chgKm).toFixed(0),'Tax on illiteracy'],
+    ['Daily revenue ₹','₹'+Math.round(t1.dailyRev),'₹'+Math.round(t3.dailyRev),''],
+    ['Daily fuel ₹','₹'+Math.round(t1.dailyFuel),'₹'+Math.round(t3.dailyFuel),''],
+    ['Daily margin ₹','₹'+Math.round(t1.dailyMargin),'₹'+Math.round(t3.dailyMargin),''],
+    ['Altruism cost/mo','₹0','₹'+Math.round(t3.altCostMonth),''],
+    ['Monthly net ₹','₹'+Math.round(t1.monthlyNet),'₹'+Math.round(t3.monthlyNet),'After all costs'],
+  ];
+
+  el('t-tbody').innerHTML=rows.map(([l,v1,v3,note])=>{
+    const n1=parseFloat(String(v1).replace('₹',''));
+    const n3=parseFloat(String(v3).replace('₹',''));
+    const c3=l.includes('net')||l.includes('margin')?n3<0?'color:var(--C)':'color:var(--A)':'';
+    return `<tr><td class="lc">${l}</td><td class="mc g">${v1}</td><td class="mc" style="${c3}">${v3}</td><td style="font-size:11px;color:var(--muted);font-style:italic">${note}</td></tr>`;
+  }).join('');
+
+  // charts
+  drawBars('c-tier-month',['Daily Revenue','Daily Fuel','Daily Margin'],[
+    {data:[Math.round(t1.dailyRev),Math.round(t1.dailyFuel),Math.max(0,Math.round(t1.dailyMargin))],color:'rgba(16,185,129,0.75)'},
+    {data:[Math.round(t3.dailyRev),Math.round(t3.dailyFuel),Math.max(0,Math.round(t3.dailyMargin))],color:'rgba(239,68,68,0.65)'},
+  ]);
+
+  const mos=Array.from({length:12},(_,i)=>i+1);
+  drawLines('c-tier-cum',mos.map(String),[
+    {data:mos.map(m=>t1.monthlyNet*m),color:'#10b981',fill:'rgba(16,185,129,0.06)'},
+    {data:mos.map(m=>t3.monthlyNet*m),color:'#ef4444',fill:'rgba(239,68,68,0.06)'},
+  ],{min:Math.min(...mos.map(m=>t3.monthlyNet*m))*1.1,max:Math.max(...mos.map(m=>t1.monthlyNet*m))*1.1});
+
+  const gap=t1.monthlyNet-t3.monthlyNet;
+  el('t-insight').innerHTML=t3.monthlyNet<0
+    ?`<strong>The Tier 3 driver is structurally insolvent.</strong> At these parameters they lose <strong style="color:var(--C)">₹${Math.abs(Math.round(t3.monthlyNet))}/month</strong>. Tier 1 nets <strong style="color:var(--A)">₹${Math.round(t1.monthlyNet)}</strong>. The gap is not driving skill — it is matrix literacy. After 12 months: Tier 1 has saved ₹${Math.round(t1.monthlyNet*12)}, Tier 3 has lost ₹${Math.abs(Math.round(t3.monthlyNet*12))}.`
+    :`<strong>Monthly income gap: ₹${Math.round(gap)}</strong> — purely from η difference. Both drivers worked the same hours on the same roads. Tier 3 drove ${Math.round((t3.totKm/t1.totKm-1)*100)}% more total kilometres for less revenue. After 12 months, the cumulative gap is <strong>₹${Math.round(gap*12)}</strong>.`;
+}
+
+// ═══════════════════════════════════════════════
+// TAB 4: TEMPORAL
+// ═══════════════════════════════════════════════
+const TOD={
+  night:{lbl:'Night (12–7 AM)',probs:{A:28,B:22,C:24,D:26},descs:{A:'Low volume',B:'Sporadic',C:'Isolated',D:'Some'},eta:0.53,insight:'Low overall volume. Experienced drivers go home. Those who remain face thin demand and high ejection risk with no surge compensation outside entertainment zones.'},
+  morn:{lbl:'Morning Commute (7–10 AM)',probs:{A:16,B:11,C:13,D:60},descs:{A:'Building',B:'Some inbound',C:'Rare',D:'★ Dominant flow'},eta:0.58,insight:'Structurally a recovery regime (high D-flow) — residential to commercial. But the flow is unidirectional. Drivers arrive downtown at exactly the moment the commute surge ends and oversupply peaks. The morning commute is a one-way conveyor belt.'},
+  mid:{lbl:'Midday (10 AM–4 PM)',probs:{A:62,B:16,C:7,D:15},descs:{A:'★ Dominant',B:'Some leakage',C:'Rare',D:'Moderate'},eta:0.72,insight:'The most productive window. Tier 1 drivers thrive here — but only if already positioned in the CBD. Drivers who arrived via the morning commute now face maximum competition from each other. The platform sees peak utilisation. The driver sees compressed margins.'},
+  eve:{lbl:'Evening Commute (5–8 PM)',probs:{A:10,B:64,C:16,D:10},descs:{A:'Reduced',B:'★ Ejection wave',C:'Destination zone',D:'Rare'},eta:0.44,insight:'The daily ejection wave. Every commuter going home is a chain-destroyer for the driver serving them. η collapses. Tier 1 drivers refuse systematically or position for D-type returns. Tier 3 absorbs the full wave. This is when drivers lose money they made during the day.'},
+  late:{lbl:'Late Night (10 PM–2 AM)',probs:{A:22,B:48,C:18,D:12},descs:{A:'Cluster to cluster',B:'★ Bar to suburb',C:'Sparse residual',D:'Some'},eta:0.47,insight:'Surge pricing partially compensates for ejection, but only partially. The bar-to-distant-suburb trip — high-value fare, zero follow-on demand — is the quintessential late-night value destroyer. Without public transit, drivers are the only option, and they pay for geographic universality with their fuel and time.'},
+  night2:{lbl:'Night (12–7 AM)',probs:{A:28,B:22,C:24,D:26},descs:{A:'Low volume',B:'Sporadic',C:'Isolated',D:'Some'},eta:0.53,insight:'Same as early night. The day has come full circle. Drivers who stayed out have absorbed hours of low-η operation. The platform\'s earnings were smooth. The driver\'s were not.'},
+};
+
+function setTOD(key, btn){
+  document.querySelectorAll('.tod-seg').forEach(s=>s.classList.remove('on'));
+  if(btn) btn.classList.add('on');
+  const d=TOD[key];
+  el('tod-lbl').textContent=d.lbl;
+  ['A','B','C','D'].forEach(q=>{
+    el(`tod-${q}-p`).textContent=d.probs[q]+'%';
+    el(`tod-${q}-d`).textContent=d.descs[q];
+  });
+  el('tod-insight').innerHTML=`<strong>${d.lbl}:</strong> ${d.insight}`;
+}
+
+function renderTODAll(){
+  const tods=['night','morn','mid','eve','late','night2'];
+  const lbls=['12AM','7AM','10AM','4PM','8PM','10PM','12AM'];
+  drawBars('c-tod-dist',['Night','Morning','Midday','Evening','Late Nt','Night'],[
+    {data:tods.map(t=>TOD[t].probs.A),color:'rgba(16,185,129,0.75)'},
+    {data:tods.map(t=>TOD[t].probs.B),color:'rgba(245,158,11,0.75)'},
+    {data:tods.map(t=>TOD[t].probs.C),color:'rgba(239,68,68,0.65)'},
+    {data:tods.map(t=>TOD[t].probs.D),color:'rgba(99,102,241,0.65)'},
+  ],{max:75});
+  drawLines('c-tod-eta',lbls,[
+    {data:tods.map(t=>TOD[t].eta),color:'#f59e0b',fill:'rgba(245,158,11,0.07)'}
+  ],{min:0.3,max:0.85});
+}
+
+// ═══════════════════════════════════════════════
+// TAB 5: TRANSIT
+// ═══════════════════════════════════════════════
+function updTr(){
+  const s=+el('tr-s').value;
+  el('tr-sv').textContent=s;
+  const shift=Math.min(92,s*9);
+  const lm=s*120;
+  const ejAbs=Math.round(shift*0.5);
+  el('tr-shift').textContent=shift+'%';
+  el('tr-lm').textContent=lm;
+  el('tr-ej').textContent=ejAbs+'%';
+
+  const preA=32,preB=28,preC=22,preD=18;
+  const dA=shift*0.18, dB=-shift*0.15+s*1, dC=-shift*0.08, dD=shift*0.05;
+  const postA=Math.round(preA+dA), postB=Math.max(5,Math.round(preB+dB));
+  const postC=Math.max(5,Math.round(preC+dC)), postD=Math.round(preD+dD);
+  const tot=postA+postB+postC+postD;
+  const pct=v=>Math.round(v/tot*100)+'%';
+
+  ['A','B','C','D'].forEach(q=>{
+    const pre={A:preA,B:preB,C:preC,D:preD}[q];
+    const post={A:postA,B:postB,C:postC,D:postD}[q];
+    el(`tr-pre${q}`).textContent=pre+'%';
+    el(`tr-post${q}`).textContent=pct(post);
+    el(`tr-post${q}`).style.color=q==='A'?'var(--A)':q==='B'?'var(--B)':q==='C'?'var(--A)':'var(--D)';
+  });
+
+  // eta chart
+  const xs=Array.from({length:11},(_,i)=>i);
+  const etaLine=xs.map(i=>0.53+i*0.024);
+  const ejLine=xs.map(i=>Math.max(6,28-i*2.2));
+  drawLines('c-tr-eta',xs.map(String),[
+    {data:etaLine.map(v=>+(v*100).toFixed(1)),color:'#10b981',fill:'rgba(16,185,129,0.06)'},
+    {data:ejLine,color:'#ef4444'},
+  ],{min:0,max:80});
+
+  el('tr-mechs').innerHTML=[
+    ['Density injection',s>0?`${s} station nodes created`:'No stations yet',s>0,
+     s>0?`Each station concentrates ~15,000 effective trips/km²/day vs ~2,000 baseline. Sparse zones acquire a dense node. The matrix shifts rightward.`:'Build stations to inject density into sparse zones.'],
+    ['Commuter flow absorbed',s>0?`${shift}% of ejection-wave trips now on metro`:'Evening ejection wave at full force',s>0,
+     s>0?`${shift}% of the evening B-flow is absorbed. Driver η at 5:30 PM improves proportionally. The most chain-destroying temporal pattern is reduced.`:'Every evening commuter is currently a chain-destroyer for the driver serving them.'],
+    ['Last-mile conversion',s>0?`${lm} new last-mile trips/hour`:'No last-mile trips yet',s>0,
+     s>0?`These are ideal driver trips: dense origin (station), short distance (2-3 km), driver loops back to station. Top-right micro-trips with excellent chain properties. Transit converts ejection trips into high-η circuits.`:'No transit nodes to generate last-mile demand.'],
+  ].map(([m,v,active,desc])=>`
+    <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="width:6px;background:${active?'var(--A)':'var(--faint)'};border-radius:2px;flex-shrink:0;margin-top:2px"></div>
+      <div>
+        <div style="font-size:11px;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:0.06em;color:${active?'var(--A)':'var(--muted)'};margin-bottom:3px">${m} — <span style="color:${active?'var(--gold)':'var(--muted)'}">${v}</span></div>
+        <div style="font-size:12px;color:var(--muted);font-style:italic">${desc}</div>
+      </div>
+    </div>`).join('');
+
+  el('tr-insight').innerHTML=s===0
+    ?`No metro coverage. The matrix operates at baseline — distributional interventions (fare caps, minimum wages, take rate limits) are the only tools available. <strong>They move costs between actors. They don't reduce costs.</strong>`
+    :s<5?`<strong>${s} stations, ${shift}% modal shift.</strong> Early-stage impact. Last-mile micro-markets forming. Evening ejection wave beginning to thin. η improving marginally. The structural shift is underway but incomplete.`
+    :`<strong>${s} stations, ${shift}% modal shift.</strong> Significant matrix reshaping. Ejection trips substantially absorbed. Last-mile economy of ${lm} trips/hour active. Sparse-zone riders now access the dense-zone ride-hailing market via transit nodes. <strong>This is what a structural intervention looks like.</strong>`;
+}
+
+// ═══════════════════════════════════════════════
+// TAB 6: AV
+// ═══════════════════════════════════════════════
+function updAV(){
+  const yr=+el('av-yr').value, tr=+el('av-tr').value;
+  el('av-yrv').textContent=yr; el('av-trv').textContent=tr;
+  el('av-yr-lbl').textContent=yr;
+
+  const prog=Math.max(0,(yr-2025)/15);
+  const avA=Math.min(90,Math.round(prog*95));
+  const avC=Math.min(28,Math.round(prog*22));
+  const humA=100-avA, humC=100-avC;
+
+  el('av-hA').style.width=humA+'%'; el('av-aA').style.width=avA+'%';
+  el('av-hC').style.width=humC+'%'; el('av-aC').style.width=avC+'%';
+  el('av-hA').textContent=humA>18?'HUMAN':''; el('av-aA').textContent=avA>18?'AV':'';
+  el('av-hC').textContent=humC>18?'HUMAN':''; el('av-aC').textContent=avC>18?'AV':'';
+
+  el('av-gap').innerHTML=`<strong>Quadrant gap:</strong> AVs capture ${avA}% of A-trips (high-η, profitable) but only ${avC}% of C-trips (sparse, costly). Human drivers are progressively left with the matrix's worst positions.`;
+
+  // remain
+  if(yr<=2027) el('av-remain').innerHTML='🟢 <strong>Full market access.</strong> Minimal AV competition. Human drivers retain all quadrants. The system looks normal from the outside.';
+  else if(yr<=2031) el('av-remain').innerHTML='🟡 <strong>A-quadrant contested.</strong> AVs winning the best trips. Human average revenue per trip declining. EMI and fuel costs unchanged. Drivers feeling the squeeze but not yet the collapse.';
+  else if(yr<=2036) el('av-remain').innerHTML='🔴 <strong>Progressive income collapse underway.</strong> Human drivers largely confined to B and C quadrants — the highest deadhead, lowest η, most chain-destroying positions. The trips AVs find unprofitable are now the only trips available to human drivers.';
+  else el('av-remain').innerHTML='⚫ <strong>Sparse-zone specialist trap.</strong> Human drivers operate almost exclusively in quadrants B and C. The moral agent has been removed from the system. The altruism trap disappears not because it was solved but because the decision-maker was eliminated.';
+
+  // chart
+  const yrs=Array.from({length:16},(_,i)=>2025+i);
+  const humanIncome=yrs.map(y=>{
+    const p=Math.max(0,(y-2025)/15);
+    const base=480; const erosion=p*0.74; const trBonus=tr/100*p*0.28;
+    return Math.round(base*(1-erosion+trBonus));
+  });
+  const avRev=yrs.map(y=>{ const p=Math.max(0,(y-2025)/15); return Math.round(p*980); });
+  const total=yrs.map((_,i)=>humanIncome[i]+avRev[i]);
+
+  drawLines('c-av',yrs.map(String),[
+    {data:humanIncome,color:'#6366f1',fill:'rgba(99,102,241,0.07)'},
+    {data:avRev,color:'#f59e0b',fill:'rgba(245,158,11,0.07)'},
+    {data:total,color:'rgba(0,0,0,0.18)'},
+  ],{min:0,max:Math.max(...total)*1.1});
+
+  el('av-insight').innerHTML=yr<=2027
+    ?`Early phase. AV deployment limited to pilot corridors. Human drivers largely unaffected. The structural shift is invisible in aggregate metrics — which is exactly how the incentive-withdrawal phase looked before drivers noticed it.`
+    :yr<=2031
+    ?`<strong>The squeeze is underway.</strong> AVs cream-skimming A-quadrant trips. Human driver average revenue per trip falling as best trips disappear. ${tr>40?'Transit coverage providing partial buffer — last-mile markets compensating for lost A-trips.':'Low transit coverage means no last-mile buffer for displaced drivers.'}`
+    :`<strong>Progressive income collapse.</strong> Human drivers pushed into the matrix's worst positions — exactly as the essay predicted. ${tr>50?'Strong transit coverage means sparse-zone riders still have viable access via last-mile ride-hailing from stations. The integrated three-mode vision is partially realised.':'Without transit investment, sparse zones are becoming transport deserts: AVs find them unprofitable, human drivers can\'t survive there either.'}`;
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+
+// ResizeObserver: re-render any chart when its card resizes
+if(typeof ResizeObserver !== 'undefined'){
+  const _chartMap = {
+    'c-eta':'t1','c-earn':'t2','c-eta-sim':'t2',
+    'c-tier-month':'t3','c-tier-cum':'t3',
+    'c-tod-dist':'t4','c-tod-eta':'t4',
+    'c-tr-eta':'t5','c-av':'t6'
+  };
+  const _ro = new ResizeObserver(entries=>{
+    entries.forEach(entry=>{
+      const canvas = entry.target.querySelector('canvas');
+      if(!canvas) return;
+      const tab = _chartMap[canvas.id];
+      if(!tab) return;
+      const activeTab = document.querySelector('.panel.on')?.id;
+      if(activeTab !== tab) return;
+      // Clear cached width so getCtx remeasures
+      canvas.style.width = '';
+      clearTimeout(_resizeTimer);
+      _resizeTimer = setTimeout(()=>{ renderTab(tab); }, 80);
+    });
+  });
+  document.querySelectorAll('.card').forEach(card=>{
+    if(card.querySelector('canvas')) _ro.observe(card);
+  });
+}
+// Track which tabs have been rendered
+const _rendered = new Set();
+
+function renderTab(id){
+  setCanvasHeights();   // Refresh height targets for this render pass
+  if(id==='t1'){ renderT1(); }
+  if(id==='t2'){ /* driver sim renders on demand */ }
+  if(id==='t3'){ updT(); }
+  if(id==='t4'){ setTOD(document.querySelector('.tod-seg.on')?.dataset?.t||'night', document.querySelector('.tod-seg.on')); renderTODAll(); }
+  if(id==='t5'){ updTr(); }
+  if(id==='t6'){ updAV(); }
+  _rendered.add(id);
+}
+
+window.addEventListener('load',()=>{
+  setCanvasHeights();
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        renderTab('t1');
+      });
+    });
+  });
+});
+
+// Re-render on resize with debounce
+let _resizeTimer;
+window.addEventListener('resize',()=>{
+  setCanvasHeights();
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(()=>{
+    const id = document.querySelector('.panel.on').id;
+    renderTab(id);
+  }, 120);
+});
+</script>
+</div><!-- /wrap -->
+</body>
+</html>
