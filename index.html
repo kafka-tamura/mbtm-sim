@@ -129,6 +129,8 @@ select{
 }
 .btn-gold{background:var(--gold);color:#000}.btn-gold:hover{opacity:0.85}
 .btn-dim{background:var(--surf2);color:var(--muted);border:1px solid var(--border2)}.btn-dim:hover{color:var(--text);background:var(--surf3)}
+.od-mode-btn{transition:background 0.15s,color 0.15s,border-color 0.15s}
+.od-mode-btn.on{background:var(--gold)!important;color:#fff!important;border-color:var(--gold)!important;font-weight:600}
 
 /* STATS ROW */
 .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
@@ -318,6 +320,7 @@ canvas{display:block;width:100%;max-width:100%}
 
 <div class="tabs">
   <button class="tab on" onclick="goto('t1',this)">1 · The Matrix</button>
+  <button class="tab" onclick="goto('t1b',this)">1b · The OD Graph</button>
   <button class="tab" onclick="goto('t2',this)">2 · Driver Day</button>
   <button class="tab" onclick="goto('t3',this)">3 · Knowledge Tiers</button>
   <button class="tab" onclick="goto('t4',this)">4 · Temporal Dynamics</button>
@@ -422,6 +425,62 @@ canvas{display:block;width:100%;max-width:100%}
           <span><span class="pill B">B</span> η 0.42–0.52</span>
           <span><span class="pill C">C</span> η 0.30–0.42</span>
           <span><span class="pill D">D</span> η 0.54–0.64</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TAB 1b: THE OD GRAPH -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="t1b" class="panel">
+  <p class="iq">"The 2×2 is a discretization of a continuous plane. Every trip is a point — origin density on one axis, destination density on the other. The constraint is absolute: the next trip's origin must equal the current trip's destination. A driver's day is a path through a directed graph, not a random walk through quadrant labels."</p>
+
+  <div class="cols">
+    <div class="col-narrow">
+      <div class="card">
+        <div class="card-hd">The OD Plane (10×10 discretization)</div>
+        <canvas id="c-od" height="300"></canvas>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.7">
+          <span style="color:#6366f1;font-weight:700">—</span> Trip. <span style="color:var(--gold);font-weight:700">- -</span> Chain snap: current destination locks next origin.
+          <span style="color:var(--gold);font-weight:700">⊘</span> Density-neutral diagonal.
+          <span style="color:#6366f1;font-weight:700">●</span> Current position. Highlighted column = forced next origin.
+        </div>
+      </div>
+    </div>
+
+    <div class="col-wide">
+      <div class="card">
+        <div class="card-hd">Dispatch mode</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
+          <button class="od-mode-btn on" data-mode="zero" onclick="odSetMode('zero')" style="padding:9px;border:1px solid var(--border);background:var(--surf);border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;color:var(--text)">Zero literacy</button>
+          <button class="od-mode-btn" data-mode="partial" onclick="odSetMode('partial')" style="padding:9px;border:1px solid var(--border);background:var(--surf);border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;color:var(--text)">Partial literacy</button>
+          <button class="od-mode-btn" data-mode="driver" onclick="odSetMode('driver')" style="padding:9px;border:1px solid var(--border);background:var(--surf);border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;color:var(--text)">Experienced driver</button>
+          <button class="od-mode-btn" data-mode="platform" onclick="odSetMode('platform')" style="padding:9px;border:1px solid var(--border);background:var(--surf);border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;color:var(--text)">Platform dispatch</button>
+        </div>
+        <div class="insight" id="od-insight" style="font-size:12px;line-height:1.7"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">Position statistics</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+          <div class="stat"><div style="font-size:10px;color:var(--muted);margin-bottom:3px">TRIPS</div><div class="stat-v" id="od-trip">0</div></div>
+          <div class="stat"><div style="font-size:10px;color:var(--muted);margin-bottom:3px">QUADRANT</div><div class="stat-v" id="od-quad">A</div></div>
+          <div class="stat"><div style="font-size:10px;color:var(--muted);margin-bottom:3px">CURRENT η</div><div class="stat-v" id="od-eta">0.78</div></div>
+          <div class="stat"><div style="font-size:10px;color:var(--muted);margin-bottom:3px">PATH AVG η</div><div class="stat-v" id="od-avgeta">0.78</div></div>
+          <div class="stat" style="grid-column:span 2"><div style="font-size:10px;color:var(--muted);margin-bottom:3px">DIAGONAL TRIPS</div><div class="stat-v" id="od-diag">—</div></div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px" id="od-pos-desc"></div>
+        <div style="font-size:12px"><span style="color:var(--muted)">Forward positional cost: </span><span id="od-forward"></span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">Controls</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="odStep()" style="padding:8px 20px;background:#6366f1;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:500">Step</button>
+          <button id="od-play-btn" onclick="odTogglePlay()" style="padding:8px 16px;background:var(--surf);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;color:var(--text)">Auto-play</button>
+          <button onclick="odReset()" style="padding:8px 16px;background:var(--surf);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;color:var(--muted)">Reset</button>
         </div>
       </div>
     </div>
@@ -939,6 +998,7 @@ function goto(id, btn){
         setCanvasHeights();
         if(id==='t2') resetSim();
         else renderTab(id);
+        if(id!=='t1b') odStopPlay();
       });
     });
   });
@@ -1379,6 +1439,7 @@ function updAV(){
 // ResizeObserver: re-render any chart when its card resizes
 if(typeof ResizeObserver !== 'undefined'){
   const _chartMap = {
+    'c-od':'t1b',
     'c-eta':'t1','c-earn':'t2','c-eta-sim':'t2',
     'c-tier-month':'t3','c-tier-cum':'t3',
     'c-tod-dist':'t4','c-tod-eta':'t4',
@@ -1402,12 +1463,298 @@ if(typeof ResizeObserver !== 'undefined'){
     if(card.querySelector('canvas')) _ro.observe(card);
   });
 }
+// ═══════════════════════════════════════════════
+// TAB 1b: THE OD GRAPH
+// ═══════════════════════════════════════════════
+const OD_N = 10;
+let odState = {
+  pos: [8, 8],
+  path: [[8, 8]],
+  mode: 'zero',
+  playing: false,
+  playTimer: null,
+  step: 0
+};
+
+function odQuadrant(i, j){
+  const t = 4.5;
+  if(i>=t && j>=t) return 'A';
+  if(i>=t && j<t)  return 'B';
+  if(i<t  && j<t)  return 'C';
+  return 'D';
+}
+
+function odEta(i){ return 0.35 + 0.43*(i/9); }
+
+function weightedChoice(weights){
+  const total = weights.reduce((a,b)=>a+b,0);
+  let r = Math.random()*total;
+  for(let i=0;i<weights.length;i++){ r-=weights[i]; if(r<=0) return i; }
+  return weights.length-1;
+}
+
+function odNextDest(originJ, mode){
+  if(mode==='zero'){
+    // Uniform random — no awareness of density or chain structure
+    return Math.floor(Math.random()*OD_N);
+  } else if(mode==='partial'){
+    // Knows dense destinations are better, chases high-j
+    // But ignores forward positional cost — no diagonal weighting
+    const w = Array.from({length:OD_N},(_,k)=>{
+      return 0.15 + 0.85*Math.pow(k/9, 1.2);
+    });
+    return weightedChoice(w);
+  } else if(mode==='driver'){
+    // Diagonal-weighted: prefers destinations that preserve positional grade
+    const w = Array.from({length:OD_N},(_,k)=>{
+      const diag = Math.exp(-0.7*Math.abs(k-originJ));
+      const dense = 0.3 + 0.7*(k/9);
+      return diag*dense;
+    });
+    return weightedChoice(w);
+  } else {
+    // Platform dispatch: profit-maximising with serviceability floor
+    const w = Array.from({length:OD_N},(_,k)=>{
+      const profit = Math.pow(k/9,1.4)*0.65;
+      const service = k<=1 ? 0.35 : 0;
+      return profit+service;
+    });
+    return weightedChoice(w);
+  }
+}
+
+function odStep(){
+  const [,j] = odState.pos;
+  const k = odNextDest(j, odState.mode);
+  odState.pos = [j, k];
+  odState.path.push([j, k]);
+  if(odState.path.length>45) odState.path.shift();
+  odState.step++;
+  renderOD();
+  updODStats();
+}
+
+function odReset(){
+  clearInterval(odState.playTimer);
+  odState.playing=false;
+  odState.pos=[8,8];
+  odState.path=[[8,8]];
+  odState.step=0;
+  const btn=el('od-play-btn');
+  if(btn) btn.textContent='Auto-play';
+  renderOD();
+  updODStats();
+}
+
+function odStopPlay(){
+  clearInterval(odState.playTimer);
+  odState.playing=false;
+  const btn=el('od-play-btn');
+  if(btn) btn.textContent='Auto-play';
+}
+
+function odTogglePlay(){
+  odState.playing=!odState.playing;
+  el('od-play-btn').textContent=odState.playing?'Pause':'Auto-play';
+  if(odState.playing){ odState.playTimer=setInterval(odStep,550); }
+  else { clearInterval(odState.playTimer); }
+}
+
+function odSetMode(mode){
+  odState.mode=mode;
+  document.querySelectorAll('.od-mode-btn').forEach(b=>{
+    b.classList.toggle('on', b.dataset.mode===mode);
+  });
+  updODInsight();
+  renderOD();
+}
+
+function renderOD(){
+  if(!el('c-od')) return;
+  const ctx=getCtx('c-od');
+  const {W,H}=ctx;
+  const N=OD_N;
+  const pad={t:22,r:10,b:34,l:34};
+  const cw=W-pad.l-pad.r, ch=H-pad.t-pad.b;
+  const cellW=cw/N, cellH=ch/N;
+  ctx.clearRect(0,0,W,H);
+
+  const [ci,cj]=odState.pos;
+
+  for(let i=0;i<N;i++){
+    for(let j=0;j<N;j++){
+      const x=pad.l+i*cellW;
+      const y=pad.t+(N-1-j)*cellH;
+      const isAvail=(i===cj);
+      const isDiag=(Math.abs(i-j)<=0);
+      const isDiagNear=(Math.abs(i-j)===1);
+      const isCur=(i===ci && j===cj);
+
+      if(isCur){
+        ctx.fillStyle='rgba(99,102,241,0.85)';
+      } else if(isAvail){
+        if(odState.mode==='zero'){
+          // No weighting — flat grey column, all destinations look equal
+          ctx.fillStyle='rgba(150,145,135,0.35)';
+        } else if(odState.mode==='partial'){
+          // Knows density matters, highlights by destination density only — no diagonal
+          const bright=0.08+0.28*(j/9);
+          ctx.fillStyle=`rgba(99,102,241,${bright})`;
+        } else if(odState.mode==='platform'){
+          if(j<=1) ctx.fillStyle='rgba(199,53,53,0.28)';
+          else if(j>=7) ctx.fillStyle='rgba(99,102,241,0.22)';
+          else ctx.fillStyle='rgba(200,195,185,0.5)';
+        } else {
+          // Experienced driver: diagonal-weighted brightness
+          const bright=0.1+0.22*(j/9);
+          ctx.fillStyle=`rgba(99,102,241,${bright})`;
+        }
+      } else if(isDiag){
+        ctx.fillStyle='rgba(245,158,11,0.22)';
+      } else if(isDiagNear){
+        ctx.fillStyle='rgba(245,158,11,0.08)';
+      } else {
+        const g=Math.round(245-55*(i/9));
+        ctx.fillStyle=`rgb(${g},${g},${g})`;
+      }
+      ctx.fillRect(x+1,y+1,cellW-2,cellH-2);
+
+      // subtle indigo tint by origin density
+      if(!isCur && !isAvail){
+        ctx.fillStyle=`rgba(99,102,241,${0.03+0.05*(i/9)})`;
+        ctx.fillRect(x+1,y+1,cellW-2,cellH-2);
+      }
+    }
+  }
+
+  // Path lines — L-shaped connectors to make chain constraint visible
+  // From (pi,pj): horizontal snap to x=pj (constraint: next origin = current destination),
+  // then vertical to (pj,qj). The elbow makes j[t]=i[t+1] legible as geometry.
+  const pl=odState.path.length;
+  if(pl>1){
+    for(let p=1;p<pl;p++){
+      const [pi,pj]=odState.path[p-1];
+      const [qi,qj]=odState.path[p]; // qi === pj always (the chain constraint)
+      const a=0.1+0.6*(p/pl);
+      const px2=pad.l+pi*cellW+cellW/2, py2=pad.t+(N-1-pj)*cellH+cellH/2;
+      const qx2=pad.l+qi*cellW+cellW/2, qy2=pad.t+(N-1-qj)*cellH+cellH/2;
+      // elbow point: same x as next trip (qi=pj), same y as current trip
+      const ex=qx2, ey=py2;
+
+      // horizontal dashed segment: current destination -> elbow (the constraint snap)
+      ctx.beginPath(); ctx.moveTo(px2,py2); ctx.lineTo(ex,ey);
+      ctx.strokeStyle=`rgba(194,125,10,${a*0.7})`; ctx.lineWidth=1.2;
+      ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
+
+      // vertical segment: elbow -> next trip endpoint
+      ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(qx2,qy2);
+      ctx.strokeStyle=`rgba(99,102,241,${a})`; ctx.lineWidth=1.5; ctx.stroke();
+
+      // dot at each trip point
+      ctx.beginPath(); ctx.arc(px2,py2,1.8,0,Math.PI*2);
+      ctx.fillStyle=`rgba(99,102,241,${a*0.7})`; ctx.fill();
+
+      // small circle at elbow to mark the constraint snap
+      ctx.beginPath(); ctx.arc(ex,ey,2.5,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(194,125,10,${a*0.8})`; ctx.lineWidth=1.2; ctx.stroke();
+    }
+  }
+
+  // Current position dot
+  const cx2=pad.l+ci*cellW+cellW/2, cy2=pad.t+(N-1-cj)*cellH+cellH/2;
+  ctx.beginPath(); ctx.arc(cx2,cy2,Math.min(cellW,cellH)*0.3,0,Math.PI*2);
+  ctx.fillStyle='rgba(99,102,241,0.95)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx2,cy2,Math.min(cellW,cellH)*0.3+3,0,Math.PI*2);
+  ctx.strokeStyle='rgba(99,102,241,0.3)'; ctx.lineWidth=2; ctx.stroke();
+
+  // Diagonal line
+  ctx.beginPath();
+  ctx.moveTo(pad.l+cellW/2, pad.t+(N-1)*cellH+cellH/2);
+  ctx.lineTo(pad.l+(N-1)*cellW+cellW/2, pad.t+cellH/2);
+  ctx.strokeStyle='rgba(194,125,10,0.55)'; ctx.lineWidth=1.2;
+  ctx.setLineDash([5,4]); ctx.stroke(); ctx.setLineDash([]);
+
+  // Axis labels
+  ctx.fillStyle='rgba(0,0,0,0.4)';
+  ctx.font='9px IBM Plex Mono,monospace';
+  ctx.textAlign='center';
+  ctx.fillText('← sparse', pad.l+cw*0.14, pad.t+ch+22);
+  ctx.fillText('dense →', pad.l+cw*0.86, pad.t+ch+22);
+  ctx.fillText('origin density', pad.l+cw/2, pad.t+ch+22);
+  ctx.save();
+  ctx.translate(12, pad.t+ch/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center';
+  ctx.fillText('destination density', 0, 0);
+  ctx.restore();
+
+  // Quadrant labels
+  ctx.fillStyle='rgba(0,0,0,0.18)';
+  ctx.font='bold 11px Arial,sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText('A', pad.l+cw*0.82, pad.t+ch*0.12);
+  ctx.fillText('B', pad.l+cw*0.82, pad.t+ch*0.92);
+  ctx.fillText('C', pad.l+cw*0.18, pad.t+ch*0.92);
+  ctx.fillText('D', pad.l+cw*0.18, pad.t+ch*0.12);
+}
+
+function updODStats(){
+  const [i,j]=odState.pos;
+  const q=odQuadrant(i,j);
+  const eta=odEta(i);
+  const avgEta=odState.path.length>0
+    ? odState.path.reduce((s,[pi])=>s+odEta(pi),0)/odState.path.length
+    : eta;
+  const diagCount=odState.path.filter(([pi,pj])=>Math.abs(pi-pj)<=1).length;
+
+  if(el('od-trip')) el('od-trip').textContent=odState.step;
+  if(el('od-quad')){
+    const qColors={A:'var(--A)',B:'var(--B)',C:'var(--C)',D:'var(--D)'};
+    el('od-quad').innerHTML=`<span style="color:${qColors[q]}">${q}</span>`;
+  }
+  if(el('od-eta')) el('od-eta').textContent=eta.toFixed(2);
+  if(el('od-avgeta')) el('od-avgeta').textContent=avgEta.toFixed(2);
+  if(el('od-diag')) el('od-diag').textContent=odState.path.length>1
+    ? Math.round(100*diagCount/odState.path.length)+'%' : '—';
+
+  const posDesc={
+    A:'Dense origin, dense destination. Chain intact — next trip starts from high-density zone.',
+    B:'Dense origin, sparse destination. Ejection event. Next trip starts from sparse zone.',
+    C:'Sparse origin, sparse destination. Worst economics. Chain degraded.',
+    D:'Sparse origin, dense destination. Recovery trip — next position improves.'
+  };
+  if(el('od-pos-desc')) el('od-pos-desc').innerHTML=posDesc[q];
+
+  const fwd=j<3?'High — next origin locked at sparse tier '+( j+1):
+             j<7?'Medium — next origin at mid-density tier '+(j+1):
+             'Low — next origin at dense tier '+(j+1);
+  const fwdCol=j<3?'var(--C)':j<7?'var(--gold)':'var(--A)';
+  if(el('od-forward')) el('od-forward').innerHTML=`<span style="color:${fwdCol}">${fwd}</span>`;
+}
+
+function updODInsight(){
+  const insights={
+    zero:`No matrix literacy. The driver treats each trip as independent — destination chosen without reference to density, chain structure, or where it leaves them next. The path is a true random walk on the OD plane, with no correlation between steps. Average &#951; will converge toward the city mean regardless of origin. The driver experiences the constraint (destination locks next origin) but cannot exploit it — each locked origin is wasted as a starting condition for another random draw.`,
+    partial:`Partial matrix literacy: the driver knows dense destinations mean shorter waits and better fares. They consistently prefer high-j destinations. But they do not account for forward positional cost — a high-j destination at the far end of a sparse origin zone still locks the next trip to a sparse starting column. The driver optimises the current trip&#39;s &#951; while degrading the chain. This is the most common failure mode in practice: correct intuition about destination quality, no intuition about path statistics. Watch how the path drifts toward high destinations but gets stranded when those destinations lie in sparse origin zones.`,
+    driver:`An experienced driver knows which trips preserve positional advantage. The density-neutral diagonal — trips where destination density matches origin density — is the set of moves that sustain access to future high-&#951; positions without spending a trip climbing back. The 2&#215;2 model cannot represent this: it records which quadrant was crossed, not whether grade within it was maintained. Diagonal trips appear as A&#8594;A or C&#8594;C in the matrix, collapsing a continuous spectrum into a binary.`,
+    platform:`Platform dispatch is not geographic fate — it is policy. The platform controls which out-edges from your current node are visible. Under a profit&#43;serviceability objective, the algorithm routes toward high-density destinations (profitable for the platform, shown in <span style="color:#6366f1;font-weight:600">blue</span>) and occasionally forces sparse-zone trips to meet coverage floors (shown in <span style="color:var(--C);font-weight:600">red</span>). The altruism trap is not an accident of city structure. It is an output of an objective function that does not include driver positional welfare. The transition probabilities in the 2&#215;2 matrix describe what the platform has made of the city — not the city itself.`
+  };
+  if(el('od-insight')) el('od-insight').innerHTML=insights[odState.mode];
+}
+
+function renderT1b(){
+  renderOD();
+  updODStats();
+  updODInsight();
+}
+
 // Track which tabs have been rendered
 const _rendered = new Set();
 
 function renderTab(id){
-  setCanvasHeights();   // Refresh height targets for this render pass
+  setCanvasHeights();
   if(id==='t1'){ renderT1(); }
+  if(id==='t1b'){ renderT1b(); }
   if(id==='t2'){ /* driver sim renders on demand */ }
   if(id==='t3'){ updT(); }
   if(id==='t4'){ setTOD(document.querySelector('.tod-seg.on')?.dataset?.t||'night', document.querySelector('.tod-seg.on')); renderTODAll(); }
